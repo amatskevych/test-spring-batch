@@ -1,6 +1,7 @@
 import-folder: input/*.csv
 output-file: result.csv
+not-use-resources : true
 
 logging:
   level:
-    ROOT: ERROR
+    ROOT: INFO

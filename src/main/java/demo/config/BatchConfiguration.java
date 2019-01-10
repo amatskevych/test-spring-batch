@@ -21,7 +21,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+
+import java.io.File;
 
 @Configuration
 @EnableBatchProcessing
@@ -34,6 +37,12 @@ public class BatchConfiguration {
 
     @Value("${output-file}")
     private Resource outputFile;
+
+    @Value("${not-use-resources:false}")
+    private boolean notUseResources;
+
+    @Value("${import-folder}")
+    private String csvFilesDirectory;
 
     @Autowired
     private JobBuilderFactory jobs;
@@ -50,7 +59,7 @@ public class BatchConfiguration {
                 .listener(new StepExecutionListener() {
                     @Override
                     public void beforeStep(StepExecution stepExecution) {
-                        log.info("The value \"importFiles\" = " + env.getProperty("import-folder"));
+                        log.info("The value \"importFiles\" = " + csvFilesDirectory);
                         log.info("Amount of import files = " + importFiles.length);
                     }
 
@@ -86,7 +95,7 @@ public class BatchConfiguration {
     @Bean
     public MultiResourceItemReader<Product> multiResourceItemReader() {
         MultiResourceItemReader<Product> resourceItemReader = new MultiResourceItemReader<>();
-        resourceItemReader.setResources(importFiles);
+        resourceItemReader.setResources(getCSVInputFiles());
         resourceItemReader.setDelegate(reader());
         return resourceItemReader;
     }
@@ -119,5 +128,19 @@ public class BatchConfiguration {
         lineMapper.setLineTokenizer(lineTokenizer);
         lineMapper.setFieldSetMapper(fieldSetMapper);
         return lineMapper;
+    }
+
+    private Resource[] getCSVInputFiles() {
+        if (notUseResources) {
+            File dir = new File(csvFilesDirectory);
+            File[] files = dir.listFiles((d, name) -> name.endsWith(".csv"));
+            Resource[] resources  = new Resource[files.length];
+            for (int i = 0; i < files.length; i++) {
+                resources[i] = new FileSystemResource(files[i]);
+            }
+            return resources;
+        } else {
+            return importFiles;
+        }
     }
 }
