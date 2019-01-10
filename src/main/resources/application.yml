@@ -4,4 +4,3 @@ output-file: result.csv
 logging:
   level:
     ROOT: ERROR
-    demo.config: DEBUG

@@ -1,5 +1,6 @@
 package demo.tasks;
 
+import demo.config.ListLowestProduct;
 import demo.model.Product;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,10 +34,10 @@ public class TaskToWriteReport implements Tasklet {
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
         log.info("TaskToWriteReport start...");
 
-        //log.info("ListLowestProduct.size()  = " + ListLowestProduct.getInstance().getProducts().size());
+        log.info("ListLowestProduct.size()  = " + ListLowestProduct.getInstance().getProducts().size());
         log.info("Write the report into CSV file..." + outputFilename);
-        //ListLowestProduct.getInstance().sort();
-        //writeToCSV(ListLowestProduct.getInstance().getProducts());
+        ListLowestProduct.getInstance().sort();
+        writeToCSV(ListLowestProduct.getInstance().getProducts());
 
         log.info("TaskToWriteReport done...");
         return RepeatStatus.FINISHED;
