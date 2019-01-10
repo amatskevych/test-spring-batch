@@ -19,6 +19,9 @@ Output CSV file that meets the following criteria:
 
 Technologies: jdk 8, maven, git, Spring Boot, Spring Batch, JUnit
 
+Spring Batch is chosen instead Spark because all threads need to be synchronised for each portion of items to compare.
+And Spring Boot is easier used for such task.   
+
 The searching of elements works via the main class "ListLowestProduct".
 
 ##### Should be installed
