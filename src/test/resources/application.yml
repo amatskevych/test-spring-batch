@@ -1,0 +1,6 @@
+import-folder: input-test/*.csv
+output-file: result-test.csv
+
+logging:
+  level:
+    demo.config: DEBUG
