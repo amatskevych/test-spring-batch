@@ -6,8 +6,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ListLowestProduct {
-    private static final int MAX_PRODUCTS = 5;
-    private static final int MAX_SAME_PRODUCTS = 3;
+    private static final int MAX_PRODUCTS = 1000;
+    private static final int MAX_SAME_PRODUCTS = 20;
 
     private Map<Integer, Integer> productAmount = new HashMap<>();
     private Map<Double, LinkedList<Product>> priceProducts = new HashMap<>();
