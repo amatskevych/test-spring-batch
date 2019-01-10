@@ -2,19 +2,18 @@ package demo.config;
 
 import demo.model.Product;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ListLowestProduct {
-    private static final int MAX_PRODUCTS = 10;
+    private static final int MAX_PRODUCTS = 5;
     private static final int MAX_SAME_PRODUCTS = 3;
 
     private Map<Integer, Integer> productAmount = new HashMap<>();
     private Map<Double, LinkedList<Product>> priceProducts = new HashMap<>();
     private Map<Integer, LinkedList<Product>> sameProductIds = new HashMap<>();
-    private LinkedList<Product> products = new LinkedList<>();
+    private final LinkedList<Product> products = new LinkedList<>();
+    private final AtomicInteger productsSize = new AtomicInteger();
     private volatile Double highestPrice = null;
 
     private static final ListLowestProduct INSTANCE = new ListLowestProduct();
@@ -26,51 +25,35 @@ public class ListLowestProduct {
         return INSTANCE;
     }
 
-    synchronized public void tryToAddProduct(Product product) {
+    void tryToAddProduct(Product product) {
         // test for ZERO price
         Double price = product.getPrice();
         if (price == null) {
             return;
-        } else if (highestPrice == null) {
-            highestPrice = price;
         }
 
-        // test price to be less than a highest price from the result list
-        if (highestPrice <= price && products.size() >= MAX_PRODUCTS) {
-            return;
+        synchronized (productsSize) {
+            if (highestPrice == null) {
+                highestPrice = price;
+            }
+            // test price to be less than a highest price from the result list
+            if (highestPrice <= price && productsSize.get() >= MAX_PRODUCTS) {
+                return;
+            }
         }
 
-        // if a size of the result list is less than max result size
-        if (products.size() < MAX_PRODUCTS) {
-            if (needToAddSameProduct(product)) {
-                addProduct(product);
+        if (productsSize.get() < MAX_PRODUCTS) { // if a size of the result list is less than max result size
+            synchronized (products) {
+                addProduct(product, false);
             }
             return;
         }
 
-        Integer productId = product.getProductId();
-        Integer amountSameProduct = getAmountOfSameProducts(product);
-
-//
-//        if (amountSameProduct >= MAX_SAME_PRODUCTS) {
-//            return;
-//        }
-//
-//        if (highestPrice <= price) {
-//            //removeLastOrSameProduct();
-//            addProduct(product);
-//        }
-//        if (getHighestPrice() > product.getProductId())
-//
-//
-//            Integer productId = product.getProductId();
-//        Integer amountSameProduct = productAmount.get(productId);
-//        if (amountSameProduct == null) {
-//            amountSameProduct = 0;
-//        }
-//        if (amountSameProduct < MAX_SAME_PRODUCTS) {
-//            productAmount.put(productId, ++amountSameProduct);
-//        }
+        synchronized (products) {
+            if (price < highestPrice) { // if a new product price is less the highest price from the result list
+                addProduct(product, true);
+            }
+        }
     }
 
     synchronized public void sort() {
@@ -81,8 +64,8 @@ public class ListLowestProduct {
         return products;
     }
 
-    private void addProduct(Product product) {
-        if (products.size() >= MAX_PRODUCTS) {
+    private void addProduct(Product product, boolean fullResultList) {
+        if (productsSize.get() >= MAX_PRODUCTS && !fullResultList) {
             return;
         }
 
@@ -92,7 +75,7 @@ public class ListLowestProduct {
 
         // update productAmount
         Integer productId = product.getProductId();
-        int amountSameProduct = getAmountOfSameProducts(product);
+        Integer amountSameProduct = productAmount.getOrDefault(productId, 0);
         productAmount.put(productId, ++amountSameProduct);
 
         // update sameProductIds
@@ -107,31 +90,48 @@ public class ListLowestProduct {
 
         // update products
         products.add(product);
-    }
 
-    private int getAmountOfSameProducts(Product product) {
-        if (product == null) {
-            return 0;
-        }
-        Integer productId = product.getProductId();
-        Integer amountOfSameProducts = productAmount.get(productId);
-        if (amountOfSameProducts == null) {
-            return 0;
-        }
-        return amountOfSameProducts;
-    }
+        if (amountSameProduct > MAX_SAME_PRODUCTS) { //remove same product with the highest price
 
-    private boolean needToAddSameProduct(Product product) {
-        if (getAmountOfSameProducts(product) >= MAX_SAME_PRODUCTS) {
-            return sameProductIds.get(product.getProductId()).getLast().getPrice() > product.getPrice();
-        }
-        return true;
-    }
+            // update productAmount
+            productAmount.put(productId, --amountSameProduct);
 
-    private Product needToRemoveSameProduct(Product product) {
-//        if (getAmountOfSameProducts(product) >= MAX_SAME_PRODUCTS) {
-//            return sameProductIds.get(product.getProductId()).getLast().getPrice() > product.getPrice();
-//        }
-        return null;
+            // update sameProductIds
+            Product productToRemove = sameProducts.removeLast();
+
+            // update priceProducts
+            priceProducts.get(productToRemove.getPrice()).remove(productToRemove);
+
+            // update priceProducts
+            products.remove(productToRemove);
+
+
+        } else if (fullResultList) { //remove the latest product with the highest price
+
+            // update priceProducts
+            LinkedList<Product> highestPriceProducts = priceProducts.get(highestPrice);
+            Product productToRemove = highestPriceProducts.removeLast();
+            Integer productIdToRemove = productToRemove.getProductId();
+
+            // update highestPrice
+            if (highestPriceProducts.isEmpty()) {
+                priceProducts.remove(highestPrice);
+                Optional<Double> optionalHighestPrice = priceProducts.keySet().stream().max(Comparator.naturalOrder());
+                highestPrice = optionalHighestPrice.orElse(null);
+            }
+
+            // update productAmount
+            Integer amountSameProductsToRemove = productAmount.getOrDefault(productIdToRemove, 0);
+            productAmount.put(productIdToRemove, --amountSameProductsToRemove);
+
+            // update sameProductIds
+            sameProductIds.get(productIdToRemove).remove(productToRemove);
+
+            // update priceProducts
+            products.remove(productToRemove);
+
+        } else {
+            productsSize.getAndIncrement();
+        }
     }
 }
